@@ -84,7 +84,7 @@ export default function DraftScreen() {
     if (emptyIdx === -1) return;
 
     const pos = posForSlot(emptyIdx, config!.squadSize);
-    const thinkMs = 1400 + Math.random() * 900; // 1.4 – 2.3 s
+    const thinkMs = 800 + Math.random() * 600; // 0.8 – 1.4 s
 
     setCpuState({ slotIdx: emptyIdx, pos, thinkMs, startedAt: Date.now(), justPicked: null });
 
@@ -239,12 +239,17 @@ export default function DraftScreen() {
                               Scouting {POS_LABEL[cpuState.pos]}…
                             </span>
                           </div>
-                          {/* Think-time progress bar */}
-                          <div className="h-1.5 bg-surface rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-away rounded-full"
-                              style={{ width: `${timerPct}%`, transition: 'width 0.1s linear' }}
-                            />
+                          {/* Think-time progress bar + countdown */}
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-away rounded-full"
+                                style={{ width: `${timerPct}%`, transition: 'width 0.1s linear' }}
+                              />
+                            </div>
+                            <span className="text-away text-[10px] font-display font-bold tabular-nums flex-shrink-0">
+                              {(((cpuState.thinkMs - (cpuState.thinkMs * timerPct / 100)) / 1000)).toFixed(1)}s
+                            </span>
                           </div>
                           <p className="text-muted/60 text-[10px] mt-1 text-right font-display">
                             {config!.away.name} is deciding…
