@@ -37,6 +37,10 @@ export default function DraftScreen() {
   const [timerPct, setTimerPct] = useState(0);
   const rng = useRef(mulberry32(Date.now())).current;
   const rafRef = useRef<number | null>(null);
+  const cpuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cancel any pending CPU timers on unmount
+  useEffect(() => () => { if (cpuTimerRef.current) clearTimeout(cpuTimerRef.current); }, []);
 
   const size = config!.squadSize;
   const isSnake = config!.draftMode === 'snake';
@@ -78,6 +82,7 @@ export default function DraftScreen() {
   }, [cpuState]);
 
   // CPU auto-draft
+  // Timer stored in cpuTimerRef so effect-cleanup (triggered by setCpuState) can't cancel it.
   useEffect(() => {
     if (!isCPUTurn || cpuState !== null || allComplete) return;
     const emptyIdx = awaySlots.findIndex(s => !s.player);
@@ -88,7 +93,7 @@ export default function DraftScreen() {
 
     setCpuState({ slotIdx: emptyIdx, pos, thinkMs, startedAt: Date.now(), justPicked: null });
 
-    const timer = setTimeout(() => {
+    cpuTimerRef.current = setTimeout(() => {
       const totalBudget = config!.budget * size;
       const state = useGameStore.getState();
       const spent = state.awaySlots.reduce((s, sl) => s + (sl.player?.val ?? 0), 0);
@@ -107,15 +112,12 @@ export default function DraftScreen() {
         newUsed.add(result.player.n);
         useGameStore.setState({ awaySlots: newSlots, usedPlayerNames: newUsed });
 
-        // Show "just picked" highlight for 1.2 s then clear cpu state
         setCpuState(prev => prev ? { ...prev, justPicked: result.player } : null);
-        setTimeout(() => setCpuState(null), 1200);
+        cpuTimerRef.current = setTimeout(() => setCpuState(null), 1200);
       } else {
         setCpuState(null);
       }
     }, thinkMs);
-
-    return () => clearTimeout(timer);
   }, [isCPUTurn, awaySlots, cpuState, allComplete]);
 
   function handlePick(team: 'home' | 'away', slotIdx: number, pos: Pos) {
