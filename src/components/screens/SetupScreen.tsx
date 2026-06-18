@@ -149,7 +149,7 @@ export default function SetupScreen() {
           />
           <p className="text-muted text-xs mt-2">
             {draftMode === 'snake'
-              ? 'Home → Away → Away → Home… Steal the star they want!'
+              ? 'Turns alternate each round: Home → Away → Away → Home. Pick before your opponent does!'
               : 'Home builds their squad fully, then Away.'}
           </p>
         </Section>
