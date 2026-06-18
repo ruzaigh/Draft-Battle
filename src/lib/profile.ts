@@ -10,6 +10,8 @@ const DEFAULT: Profile = {
   dailyStreak: 0, lastDailyDate: null,
   unlockedIcons: false, favPlayer: null,
   achievements: [],
+  pendingRerolls: 0,
+  pendingBudgetBoost: 0,
 };
 
 export function loadProfile(): Profile {

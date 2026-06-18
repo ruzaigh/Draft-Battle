@@ -21,6 +21,7 @@ interface GameState {
   dropSlot: (team: 'home' | 'away', slotIdx: number) => void;
   setMatchResult: (r: MatchResult) => void;
   updateProfile: (p: Profile) => void;
+  buyItem: (item: 'reroll' | 'budget') => boolean;
   reset: () => void;
 }
 
@@ -46,15 +47,23 @@ export const useGameStore = create<GameState>((set, get) => ({
   setScreen: (s) => set({ screen: s }),
 
   startGame: (config) => {
+    const { profile } = get();
+    const boostedConfig: GameConfig = {
+      ...config,
+      totalBudgetBonus: profile.pendingBudgetBoost * 50,
+    };
+    const newProfile: Profile = { ...profile, pendingRerolls: 0, pendingBudgetBoost: 0 };
+    saveProfile(newProfile);
     set({
-      config,
+      config: boostedConfig,
       homeSlots: emptySlots(config.squadSize),
       awaySlots: emptySlots(config.squadSize),
       usedPlayerNames: new Set(),
-      homeRerolls: config.squadSize,
+      homeRerolls: config.squadSize + profile.pendingRerolls,
       awayRerolls: config.squadSize,
       matchResult: null,
       screen: 'draft',
+      profile: newProfile,
     });
   },
 
@@ -63,7 +72,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!config) return null;
 
     const slots = team === 'home' ? [...homeSlots] : [...awaySlots];
-    const totalBudget = config.budget * config.squadSize;
+    const totalBudget = config.budget * config.squadSize + config.totalBudgetBonus;
     const spent = slots
       .filter((_, i) => i !== slotIdx)
       .reduce((s, slot) => s + (slot.player?.val ?? 0), 0);
@@ -100,7 +109,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const slot = slots[slotIdx];
     if (!slot.pos || !slot.player) return;
 
-    const totalBudget = config.budget * config.squadSize;
+    const totalBudget = config.budget * config.squadSize + config.totalBudgetBonus;
     const spent = slots
       .filter((_, i) => i !== slotIdx)
       .reduce((s, sl) => s + (sl.player?.val ?? 0), 0);
@@ -145,6 +154,21 @@ export const useGameStore = create<GameState>((set, get) => ({
   updateProfile: (p) => {
     saveProfile(p);
     set({ profile: p });
+  },
+
+  buyItem: (item) => {
+    const { profile } = get();
+    const cost = item === 'reroll' ? 75 : 100;
+    if (profile.coins < cost) return false;
+    const newProfile: Profile = {
+      ...profile,
+      coins: profile.coins - cost,
+      pendingRerolls: item === 'reroll' ? profile.pendingRerolls + 1 : profile.pendingRerolls,
+      pendingBudgetBoost: item === 'budget' ? profile.pendingBudgetBoost + 1 : profile.pendingBudgetBoost,
+    };
+    saveProfile(newProfile);
+    set({ profile: newProfile });
+    return true;
   },
 
   reset: () => set({

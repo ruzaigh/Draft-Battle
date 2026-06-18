@@ -94,7 +94,7 @@ export default function DraftScreen() {
     setCpuState({ slotIdx: emptyIdx, pos, thinkMs, startedAt: Date.now(), justPicked: null });
 
     cpuTimerRef.current = setTimeout(() => {
-      const totalBudget = config!.budget * size;
+      const totalBudget = config!.budget * size + config!.totalBudgetBonus;
       const state = useGameStore.getState();
       const spent = state.awaySlots.reduce((s, sl) => s + (sl.player?.val ?? 0), 0);
       const remaining = totalBudget - spent;
@@ -127,7 +127,7 @@ export default function DraftScreen() {
 
   const homeSpent = homeSlots.reduce((s, sl) => s + (sl.player?.val ?? 0), 0);
   const awaySpent = awaySlots.reduce((s, sl) => s + (sl.player?.val ?? 0), 0);
-  const totalBudget = config!.budget * size;
+  const totalBudget = config!.budget * size + config!.totalBudgetBonus;
 
   return (
     <div className="min-h-screen bg-base p-3 pb-10">

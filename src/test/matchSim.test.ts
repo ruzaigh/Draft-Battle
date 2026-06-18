@@ -13,6 +13,7 @@ const cfg: GameConfig = {
   budget: 85,
   budgetTier: 'Balanced',
   draftMode: 'classic',
+  totalBudgetBonus: 0,
 };
 
 describe('simulateMatch', () => {

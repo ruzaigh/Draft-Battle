@@ -16,6 +16,7 @@ export default function DailyScreen() {
       budget: 85,
       budgetTier: 'Balanced',
       draftMode: 'classic',
+      totalBudgetBonus: 0,
     });
   }
 

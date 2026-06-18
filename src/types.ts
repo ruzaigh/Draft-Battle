@@ -35,6 +35,7 @@ export interface GameConfig {
   budget: number; // per player
   budgetTier: BudgetTier;
   draftMode: DraftMode;
+  totalBudgetBonus: number; // flat extra $M from shop boost
 }
 
 export interface MatchEvent {
@@ -55,7 +56,7 @@ export interface MatchResult {
   config: GameConfig;
 }
 
-export type Screen = 'home' | 'setup' | 'draft' | 'match' | 'result' | 'profile' | 'daily';
+export type Screen = 'home' | 'setup' | 'draft' | 'match' | 'result' | 'profile' | 'daily' | 'shop';
 
 export interface Profile {
   wins: number;
@@ -72,4 +73,6 @@ export interface Profile {
   unlockedIcons: boolean;
   favPlayer: string | null;
   achievements: string[];
+  pendingRerolls: number;    // extra reroll tokens queued for next draft
+  pendingBudgetBoost: number; // number of $50M boosts queued for next match
 }

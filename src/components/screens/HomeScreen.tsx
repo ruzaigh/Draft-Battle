@@ -61,12 +61,25 @@ export default function HomeScreen() {
             <span className="ml-2 text-sm opacity-75">🔥{profile.dailyStreak}</span>
           )}
         </button>
-        <button
-          onClick={() => setScreen('profile')}
-          className="w-full bg-surface2 border border-line text-muted font-display font-bold py-3 rounded-xl hover:border-muted hover:text-text transition-all focus-visible:outline-2 focus-visible:outline-muted active:scale-95"
-        >
-          MY PROFILE
-        </button>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setScreen('shop')}
+            className="relative bg-surface2 border border-gold/50 text-gold font-display font-bold py-3 rounded-xl hover:bg-gold/10 transition-all focus-visible:outline-2 focus-visible:outline-gold active:scale-95"
+          >
+            SHOP
+            {(profile.pendingRerolls > 0 || profile.pendingBudgetBoost > 0) && (
+              <span className="absolute -top-1.5 -right-1.5 bg-lime text-base text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                {profile.pendingRerolls + profile.pendingBudgetBoost}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setScreen('profile')}
+            className="bg-surface2 border border-line text-muted font-display font-bold py-3 rounded-xl hover:border-muted hover:text-text transition-all focus-visible:outline-2 focus-visible:outline-muted active:scale-95"
+          >
+            MY PROFILE
+          </button>
+        </div>
       </div>
 
       {profile.unlockedIcons && (
