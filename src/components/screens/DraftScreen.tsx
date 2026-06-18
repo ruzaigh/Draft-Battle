@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import PlayerCard from '../PlayerCard';
-import type { Pos } from '../../types';
+import type { Player, Pos } from '../../types';
 import { PLAYERS, ICONS } from '../../data/players';
-import { cpuDraftPick } from '../../lib/cpuDraft';
+import { cpuDraftPick, posForSlot } from '../../lib/cpuDraft';
 import { mulberry32 } from '../../lib/rng';
 
 const POS_COLORS: Record<Pos, string> = {
@@ -13,13 +13,30 @@ const POS_COLORS: Record<Pos, string> = {
   FWD: 'bg-away/20 text-away border-away hover:bg-away/30',
 };
 
+const POS_LABEL: Record<Pos, string> = {
+  GK: 'Goalkeeper',
+  DEF: 'Defender',
+  MID: 'Midfielder',
+  FWD: 'Forward',
+};
+
+interface CpuState {
+  slotIdx: number;
+  pos: Pos;
+  thinkMs: number;
+  startedAt: number;
+  justPicked: Player | null; // set briefly after pick lands
+}
+
 export default function DraftScreen() {
   const store = useGameStore();
-  const { config, homeSlots, awaySlots, usedPlayerNames, homeRerolls, awayRerolls, profile } = store;
+  const { config, homeSlots, awaySlots, homeRerolls, awayRerolls, profile } = store;
 
   const [activeSlot, setActiveSlot] = useState<{ team: 'home' | 'away'; idx: number } | null>(null);
-  const [cpuWorking, setCpuWorking] = useState(false);
+  const [cpuState, setCpuState] = useState<CpuState | null>(null);
+  const [timerPct, setTimerPct] = useState(0);
   const rng = useRef(mulberry32(Date.now())).current;
+  const rafRef = useRef<number | null>(null);
 
   const size = config!.squadSize;
   const isSnake = config!.draftMode === 'snake';
@@ -28,11 +45,9 @@ export default function DraftScreen() {
   const awayComplete = awaySlots.every(s => s.player !== null);
   const allComplete = homeComplete && awayComplete;
 
-  // In classic mode: home first, then away. In snake we toggle per pick.
   function snakeTurn(): 'home' | 'away' {
     const homePicked = homeSlots.filter(s => s.player).length;
     const awayPicked = awaySlots.filter(s => s.player).length;
-    // Home picks 1st, then alternate pairs
     const total = homePicked + awayPicked;
     const round = Math.floor(total / 2);
     const isEvenRound = round % 2 === 0;
@@ -45,47 +60,67 @@ export default function DraftScreen() {
 
   const isCPUTurn = config!.away.isCPU && currentTeam === 'away' && !awayComplete;
 
+  // Animate the timer bar via rAF
+  useEffect(() => {
+    if (!cpuState || cpuState.justPicked) {
+      setTimerPct(0);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      return;
+    }
+    const tick = () => {
+      const elapsed = Date.now() - cpuState.startedAt;
+      const pct = Math.min(100, (elapsed / cpuState.thinkMs) * 100);
+      setTimerPct(pct);
+      if (pct < 100) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [cpuState]);
+
   // CPU auto-draft
   useEffect(() => {
-    if (!isCPUTurn || cpuWorking || allComplete) return;
+    if (!isCPUTurn || cpuState !== null || allComplete) return;
     const emptyIdx = awaySlots.findIndex(s => !s.player);
     if (emptyIdx === -1) return;
 
-    setCpuWorking(true);
+    const pos = posForSlot(emptyIdx, config!.squadSize);
+    const thinkMs = 1400 + Math.random() * 900; // 1.4 – 2.3 s
+
+    setCpuState({ slotIdx: emptyIdx, pos, thinkMs, startedAt: Date.now(), justPicked: null });
+
     const timer = setTimeout(() => {
       const totalBudget = config!.budget * size;
-      const spent = awaySlots.reduce((s, sl) => s + (sl.player?.val ?? 0), 0);
+      const state = useGameStore.getState();
+      const spent = state.awaySlots.reduce((s, sl) => s + (sl.player?.val ?? 0), 0);
       const remaining = totalBudget - spent;
 
       const pool = profile.unlockedIcons ? [...PLAYERS, ...ICONS] : PLAYERS;
-      const available = pool.filter(p => !usedPlayerNames.has(p.n) && p.val <= remaining);
+      const available = pool.filter(p => !state.usedPlayerNames.has(p.n) && p.val <= remaining);
 
-      const result = cpuDraftPick(
-        emptyIdx, config!.squadSize, available, remaining,
-        config!.away.difficulty ?? 'Pro', rng
-      );
+      const result = cpuDraftPick(emptyIdx, config!.squadSize, available, remaining,
+        config!.away.difficulty ?? 'Pro', rng);
 
       if (result) {
-        const state = useGameStore.getState();
         const newSlots = [...state.awaySlots];
         const newUsed = new Set(state.usedPlayerNames);
         newSlots[emptyIdx] = { pos: result.pos, player: result.player };
         newUsed.add(result.player.n);
         useGameStore.setState({ awaySlots: newSlots, usedPlayerNames: newUsed });
+
+        // Show "just picked" highlight for 1.2 s then clear cpu state
+        setCpuState(prev => prev ? { ...prev, justPicked: result.player } : null);
+        setTimeout(() => setCpuState(null), 1200);
+      } else {
+        setCpuState(null);
       }
-      setCpuWorking(false);
-    }, 600 + Math.random() * 700);
+    }, thinkMs);
 
     return () => clearTimeout(timer);
-  }, [isCPUTurn, awaySlots, cpuWorking, allComplete]);
+  }, [isCPUTurn, awaySlots, cpuState, allComplete]);
 
   function handlePick(team: 'home' | 'away', slotIdx: number, pos: Pos) {
     store.pickPlayer(team, slotIdx, pos);
     setActiveSlot(null);
-  }
-
-  function handleConfirm() {
-    store.setScreen('match');
   }
 
   const homeSpent = homeSlots.reduce((s, sl) => s + (sl.player?.val ?? 0), 0);
@@ -116,15 +151,12 @@ export default function DraftScreen() {
 
             return (
               <div key={team} className={`min-w-0 transition-opacity ${!isActive && !complete ? 'opacity-55' : ''}`}>
-                {/* Team header */}
+                {/* Header */}
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-display font-bold text-sm truncate" style={{ color }}>
+                  <h3 className="font-display font-bold text-sm truncate min-w-0" style={{ color }}>
                     {name.toUpperCase()}
                     {isActive && !isCPU && (
                       <span className="ml-1 text-[10px] text-lime animate-pulse"> ON CLOCK</span>
-                    )}
-                    {isCPU && cpuWorking && (
-                      <span className="ml-1 text-[10px] text-muted animate-pulse"> THINKING…</span>
                     )}
                   </h3>
                   <span className="text-muted text-xs flex-shrink-0">🔄{rerolls}</span>
@@ -151,12 +183,22 @@ export default function DraftScreen() {
                 <div className="space-y-1.5">
                   {slots.map((slot, i) => {
                     const isThisActive = isActive && activeSlot?.team === team && activeSlot.idx === i;
+                    const isCpuThinkingHere = isCPU && cpuState !== null && cpuState.slotIdx === i && !cpuState.justPicked;
+                    const isCpuJustPickedHere = isCPU && cpuState !== null && cpuState.slotIdx === i && cpuState.justPicked !== null;
 
+                    // Slot has been filled — show player card
                     if (slot.player) {
                       return (
-                        <div key={i} className="flex items-center gap-1 min-w-0">
-                          <div className="flex-1 min-w-0">
-                            <PlayerCard player={slot.player} compact teamColor={color} />
+                        <div
+                          key={i}
+                          className={`flex items-center gap-1 min-w-0 transition-all duration-300
+                            ${isCpuJustPickedHere ? 'scale-[1.03]' : ''}`}
+                        >
+                          <div
+                            className={`flex-1 min-w-0 rounded-lg transition-all duration-300
+                              ${isCpuJustPickedHere ? 'ring-2 ring-away shadow-lg shadow-away/30' : ''}`}
+                          >
+                            <PlayerCard player={slot.player} compact teamColor={isCpuJustPickedHere ? '#FF3D6E' : color} />
                           </div>
                           {isActive && !isCPU && (
                             <div className="flex flex-col gap-0.5 flex-shrink-0">
@@ -177,6 +219,41 @@ export default function DraftScreen() {
                       );
                     }
 
+                    // CPU is actively thinking for this slot
+                    if (isCpuThinkingHere && cpuState) {
+                      return (
+                        <div
+                          key={i}
+                          className="bg-surface2 border-2 border-away/60 rounded-lg p-2.5 animate-pulse"
+                        >
+                          {/* Position being scouted */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`text-xs font-display font-bold px-2 py-0.5 rounded border
+                              ${cpuState.pos === 'GK'  ? 'bg-gold/20 text-gold border-gold' :
+                                cpuState.pos === 'DEF' ? 'bg-home/20 text-home border-home' :
+                                cpuState.pos === 'MID' ? 'bg-lime/20 text-lime border-lime' :
+                                                         'bg-away/20 text-away border-away'}`}>
+                              {cpuState.pos}
+                            </span>
+                            <span className="text-muted text-xs truncate">
+                              Scouting {POS_LABEL[cpuState.pos]}…
+                            </span>
+                          </div>
+                          {/* Think-time progress bar */}
+                          <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-away rounded-full"
+                              style={{ width: `${timerPct}%`, transition: 'width 0.1s linear' }}
+                            />
+                          </div>
+                          <p className="text-muted/60 text-[10px] mt-1 text-right font-display">
+                            {config!.away.name} is deciding…
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    // Human pick: position selector open
                     if (isThisActive) {
                       return (
                         <div key={i} className="bg-surface2 border border-lime rounded-lg p-2">
@@ -192,25 +269,21 @@ export default function DraftScreen() {
                               </button>
                             ))}
                           </div>
-                          <button
-                            onClick={() => setActiveSlot(null)}
-                            className="text-muted text-[10px] mt-1.5 hover:text-text"
-                          >
+                          <button onClick={() => setActiveSlot(null)} className="text-muted text-[10px] mt-1.5 hover:text-text">
                             cancel
                           </button>
                         </div>
                       );
                     }
 
+                    // Empty slot (human, not active)
                     return (
                       <button
                         key={i}
                         onClick={() => isActive && !isCPU && setActiveSlot({ team, idx: i })}
                         disabled={!isActive || isCPU}
                         className={`w-full py-3 border-2 border-dashed rounded-lg text-xs font-display transition-all
-                          ${isActive && !isCPU
-                            ? 'cursor-pointer hover:opacity-80'
-                            : 'cursor-default opacity-30'}`}
+                          ${isActive && !isCPU ? 'cursor-pointer hover:opacity-80' : 'cursor-default opacity-30'}`}
                         style={{ borderColor: isActive ? color + '50' : '#27463A', color: isActive ? color : '#8AA396' }}
                       >
                         Slot {i + 1}
@@ -225,7 +298,7 @@ export default function DraftScreen() {
 
         {allComplete && (
           <button
-            onClick={handleConfirm}
+            onClick={() => store.setScreen('match')}
             className="w-full mt-6 bg-lime text-base font-display font-bold text-xl py-4 rounded-xl hover:brightness-110 transition-all focus-visible:outline-2 focus-visible:outline-white active:scale-95"
           >
             KICK OFF ⚽

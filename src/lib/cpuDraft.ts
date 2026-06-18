@@ -1,6 +1,6 @@
 import type { Player, Pos, Difficulty, SquadSize } from '../types';
 
-function posForSlot(idx: number, size: SquadSize): Pos {
+export function posForSlot(idx: number, size: SquadSize): Pos {
   if (size === 3) return (['GK', 'MID', 'FWD'] as Pos[])[idx % 3];
   if (size === 5) return (['GK', 'DEF', 'MID', 'MID', 'FWD'] as Pos[])[idx % 5];
   if (size === 7) return (['GK', 'DEF', 'DEF', 'MID', 'MID', 'FWD', 'FWD'] as Pos[])[idx % 7];
