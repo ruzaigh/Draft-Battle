@@ -54,6 +54,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     };
     const newProfile: Profile = { ...profile, pendingRerolls: 0, pendingBudgetBoost: 0 };
     saveProfile(newProfile);
+    const targetScreen: Screen = config.draftMode === 'sss' ? 'sss-draft' : 'draft';
     set({
       config: boostedConfig,
       homeSlots: emptySlots(config.squadSize),
@@ -62,7 +63,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       homeRerolls: config.squadSize + profile.pendingRerolls,
       awayRerolls: config.squadSize,
       matchResult: null,
-      screen: 'draft',
+      screen: targetScreen,
       profile: newProfile,
     });
   },

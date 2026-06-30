@@ -14,7 +14,7 @@ export interface Player {
 
 export type SquadSize = 3 | 5 | 7 | 11;
 export type BudgetTier = 'Tight' | 'Balanced' | 'Loaded' | 'Galáctico';
-export type DraftMode = 'classic' | 'snake';
+export type DraftMode = 'classic' | 'snake' | 'sss';
 export type Difficulty = 'Easy' | 'Pro' | 'Legend';
 
 export interface ManagerConfig {
@@ -56,7 +56,7 @@ export interface MatchResult {
   config: GameConfig;
 }
 
-export type Screen = 'home' | 'setup' | 'draft' | 'match' | 'result' | 'profile' | 'daily' | 'shop';
+export type Screen = 'home' | 'setup' | 'draft' | 'match' | 'result' | 'profile' | 'daily' | 'shop' | 'sss-draft';
 
 export interface Profile {
   wins: number;

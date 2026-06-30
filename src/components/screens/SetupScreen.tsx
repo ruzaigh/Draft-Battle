@@ -118,24 +118,26 @@ export default function SetupScreen() {
           </div>
         </Section>
 
-        {/* Budget */}
-        <Section label={`Budget — Total: $${total}M`}>
-          <div className="grid grid-cols-2 gap-2">
-            {BUDGET_TIERS.map(t => (
-              <button
-                key={t.label}
-                onClick={() => setBudgetTier(t.label)}
-                className={`py-3 px-3 rounded-lg font-display font-bold text-sm transition-all text-left focus-visible:outline-2 focus-visible:outline-lime active:scale-95
-                  ${budgetTier === t.label
-                    ? 'bg-gold/20 border-2 border-gold text-gold'
-                    : 'bg-surface2 border border-line text-muted hover:border-muted'}`}
-              >
-                <div>{t.label}</div>
-                <div className="text-xs font-normal opacity-75">{t.desc}</div>
-              </button>
-            ))}
-          </div>
-        </Section>
+        {/* Budget — hidden in SSS mode */}
+        {draftMode !== 'sss' && (
+          <Section label={`Budget — Total: $${total}M`}>
+            <div className="grid grid-cols-2 gap-2">
+              {BUDGET_TIERS.map(t => (
+                <button
+                  key={t.label}
+                  onClick={() => setBudgetTier(t.label)}
+                  className={`py-3 px-3 rounded-lg font-display font-bold text-sm transition-all text-left focus-visible:outline-2 focus-visible:outline-lime active:scale-95
+                    ${budgetTier === t.label
+                      ? 'bg-gold/20 border-2 border-gold text-gold'
+                      : 'bg-surface2 border border-line text-muted hover:border-muted'}`}
+                >
+                  <div>{t.label}</div>
+                  <div className="text-xs font-normal opacity-75">{t.desc}</div>
+                </button>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* Draft mode */}
         <Section label="Draft Mode">
@@ -143,14 +145,17 @@ export default function SetupScreen() {
             options={[
               { value: 'classic', label: 'Classic' },
               { value: 'snake', label: 'Snake Draft' },
+              { value: 'sss', label: 'Start/Sub/Sell' },
             ]}
             value={draftMode}
             onChange={v => setDraftMode(v as DraftMode)}
-            cols={2}
+            cols={3}
           />
           <p className="text-muted text-xs mt-2">
             {draftMode === 'snake'
               ? 'Turns alternate each round: Home → Away → Away → Home. Pick before your opponent does!'
+              : draftMode === 'sss'
+              ? 'Each round: 3 similar players, one position. Assign Start, Sub or Sell — sold players earn coins!'
               : 'Home builds their squad fully, then Away.'}
           </p>
         </Section>
@@ -159,7 +164,7 @@ export default function SetupScreen() {
           onClick={handleStart}
           className="w-full bg-lime text-base font-display font-bold text-xl py-4 rounded-xl hover:brightness-110 transition-all focus-visible:outline-2 focus-visible:outline-white active:scale-95 mt-2"
         >
-          ENTER THE MARKET →
+          {draftMode === 'sss' ? 'START DRAFTING →' : 'ENTER THE MARKET →'}
         </button>
       </div>
     </div>
